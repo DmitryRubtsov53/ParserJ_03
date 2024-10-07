@@ -74,7 +74,7 @@ public class ParserJson {
     }
 
     /** Метод замены значений полей test2.json на значения одноименных
-     * полей записи из таблицы message_db БД.
+     * полей записи из таблицы message_db БД и отправки в kafka.
      */
     @Scheduled(cron = "1/10 * * * * ?")
     public void MessageDBToJson() {
