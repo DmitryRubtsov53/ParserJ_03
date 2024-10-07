@@ -40,7 +40,7 @@ public class ParserJson {
         // Проверяем обязательные поля
         if ( productId == null) {
             System.out.println("Пропускаем запись: обязательные поля не заполнены.");
-            return; // Прекращаем выполнение метода, если обязательные поля отсутствуют
+            return; 
         }
 
         // Обрабатываем массив registers
@@ -58,7 +58,7 @@ public class ParserJson {
                 // Проверяем наличие обязательных полей перед добавлением записи
                 if (record.get("registerType") == null || record.get("restIn") == null) {
                     System.out.println("Пропускаем запись: обязательные поля в registers не заполнены.");
-                    continue; // Пропускаем запись, если обязательные поля отсутствуют
+                    continue; 
                 }
                 // Добавляем запись в список
                 records.add(record);
@@ -114,7 +114,7 @@ public class ParserJson {
     // Метод для рекурсивного маппинга полей объекта на JSON
     private static void mapFieldsToJson(Map<String, Object> messageDB, JsonNode jsonNode) throws IllegalAccessException {
         for (Map.Entry<String,Object> field : messageDB.entrySet()) {
-            Object value = field.getValue();  // Получаем значение поля
+            Object value = field.getValue();  
 
             if (value != null) {
                 replaceValueInJson(jsonNode, field.getKey(), value);
@@ -134,7 +134,7 @@ public class ParserJson {
                 if (key.equalsIgnoreCase(fieldName)) {
                     // Заменяем значение, если ключ найден
                     ((ObjectNode) jsonNode).put(fieldName, value.toString());
-                    return; // Выходим из метода, так как заменили значение
+                    return; 
                 }
             }
         }
