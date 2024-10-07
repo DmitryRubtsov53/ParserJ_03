@@ -1,0 +1,28 @@
+{
+  "messageType": "REGISTER_POSITION",
+  "header": {
+    "accountingDate": "2024-09-10",
+    "productId": "test1",
+    "destination": "test2",
+    "format": "JSON",
+    "messageId": "2fc008a2-0000",
+    "source": "PRODUCT",
+    "originationMessageId": "d5ff6701-0000",
+    "timestamp": "2024-07-17T09:46:08.0Z"
+  },
+  "dfaRegisterPosition": {
+    "productId": "test1",
+    "accountingDate": "2024-09-10",
+    "registers": [
+      {
+        "registerType": "TEST5",
+        "intradayVersion": 1,
+        "syntheticAccount": "000001.01",
+        "restIn": 0,
+        "restOut": 0,
+        "turnIn": 0,
+        "turnOut": 0
+      }
+    ]
+  }
+}

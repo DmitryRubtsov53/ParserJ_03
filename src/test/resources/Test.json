@@ -1,0 +1,27 @@
+{
+  "messageType": "REGISTER_POSITION",
+  "header": {
+    "accountingDate": "2024-09-10",
+    "productId": "test1",
+    "messageId": "2fc008a2-0000"
+  },
+  "dfaRegisterPosition": {
+    "productId": "test1",
+    "accountingDate": "2024-09-10",
+    "registers": [
+      {
+        "registerType": "TEST3",
+        "restIn": 1000000
+      },
+      {
+        "registerType": "TEST4",
+        "restIn": 50000
+      },
+      {
+        "registerType": "TEST5",
+        "restIn": 0
+      }
+    ]
+  }
+}
+

@@ -1,0 +1,16 @@
+fields:
+  fieldMappings:
+
+    accountingDate: "/header/accountingDate"
+    messageId: "/header/messageId"
+    productId: "/header/productId"
+
+    registers: "/dfaRegisterPosition/registers"
+    registerType: "/registerType"
+    restIn: "/restIn"
+
+  requiredFields:
+    - productId
+    - registerType
+    - restIn
+
