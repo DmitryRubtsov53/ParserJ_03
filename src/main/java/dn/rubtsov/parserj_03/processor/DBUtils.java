@@ -1,17 +1,28 @@
 package dn.rubtsov.parserj_03.processor;
 
-import java.lang.reflect.Field;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import java.sql.*;
 import java.util.*;
-
+@Service
 public class DBUtils {
-    public static final String URL = "jdbc:postgresql://localhost:5432/postgres";
-    public static final String USER = "postgres";
-    public static final String PASSWORD = "1";
+
+    private final String URL;
+    private final String USER;
+    private final String PASSWORD;
+
+    public DBUtils(@Value("${spring.datasource.url}") String URL,
+                   @Value("${spring.datasource.username}")String USER,
+                   @Value("${spring.datasource.password}")String PASSWORD) {
+        this.URL = URL;
+        this.USER = USER;
+        this.PASSWORD = PASSWORD;
+    }
 
     /** Метод динамического создания таблицы для объекта.
      */
-    public static void createTableIfNotExists(String tableName) {
+    public void createTableIfNotExists(String tableName) {
         String createTableSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
                 "uid UUID PRIMARY KEY DEFAULT gen_random_uuid(), " +
                 "insert_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(), " +
@@ -23,7 +34,6 @@ public class DBUtils {
                 "registerType VARCHAR(255)," +
                 "restIn VARCHAR(255))";
 
-        // Добавляем стандартные поля, например, для ID и даты вставки
         try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
              Statement statement = connection.createStatement()) {
             statement.execute(createTableSQL);
@@ -34,7 +44,7 @@ public class DBUtils {
 
     /** Метод вставки данных объектов в таблицу.
      */
-    public static void insertRecords(Map<String, Object> data, String tableName) {
+    public void insertRecords(Map<String, Object> data, String tableName) {
         if (data == null || data.isEmpty()) {
             return;  // Нет данных для вставки
         }
@@ -46,7 +56,7 @@ public class DBUtils {
         try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement preparedStatement = connection.prepareStatement(insertDataSQL)) {
 
-            int i = 0; // индекс для параметров запроса
+            int i = 0;
             // Устанавливаем значения в запрос
             for (Map.Entry<String, Object> entry : data.entrySet()) {
                 Object value = entry.getValue();
@@ -60,7 +70,7 @@ public class DBUtils {
                 } else if (value instanceof Boolean) {
                     preparedStatement.setBoolean(i + 1, (Boolean) value);
                 } else if (value == null) {
-                    preparedStatement.setNull(i + 1, java.sql.Types.NULL); // Устанавливаем NULL в запрос
+                    preparedStatement.setNull(i + 1, java.sql.Types.NULL);
                 } else {
                     throw new IllegalArgumentException("Unsupported data type: " + value.getClass().getName());
                 }
@@ -85,7 +95,7 @@ public class DBUtils {
 
     /** Универсальный метод для удаления таблицы.
      */
-    public static void dropTableIfExists(String tableName) {
+    public void dropTableIfExists(String tableName) {
         String dropSQL = "DROP TABLE IF EXISTS " + tableName + " CASCADE";
         try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
              Statement statement = connection.createStatement()) {
@@ -98,11 +108,11 @@ public class DBUtils {
     /** Метод считывания 1-й записи БД с dispatchStatus = 0 и замены его на 1.
      * @return карта с парами ключ-значение полей считанной записи.
      */
-    public static Map<String, Object> getAndUpdateFirstRecordWithDispatchStatus() {
+    public Map<String, Object> getAndUpdateFirstRecordWithDispatchStatus() {
         // SQL-запрос для выборки данных из обеих таблиц с объединением
-        String selectSQL = "SELECT productid, messageid, accountingdate, registertype, restin FROM message_db WHERE dispatchStatus = 0 LIMIT 1";
-        // SQL-запрос для обновления статуса записи в таблице registers_table
-        String updateSQL = "UPDATE message_db SET dispatchStatus = 1 WHERE registertype = ? AND restin = ?";
+        String selectSQL = "SELECT uid, productid, messageid, accountingdate, registertype, restin FROM message_db WHERE dispatchStatus = 0 LIMIT 1";
+        // SQL-запрос для обновления статуса записи в таблице
+        String updateSQL = "UPDATE message_db SET dispatchStatus = 1 WHERE uid = ?";
         // Карта для хранения значений
         Map<String, Object> resultMap = new LinkedHashMap<>();
 
@@ -114,15 +124,18 @@ public class DBUtils {
             // Выборка первой записи
             if (resultSet.next()) {
                 // Заполняем карту полями из результата выборки
+                resultMap.put("uid", resultSet.getString("uid"));
                 resultMap.put("productid", resultSet.getString("productid"));
                 resultMap.put("messageid", resultSet.getString("messageid"));
                 resultMap.put("accountingdate", resultSet.getString("accountingdate"));
                 resultMap.put("registerType", resultSet.getString("registertype"));
                 resultMap.put("restIn", resultSet.getInt("restin"));
-                // Обновляем значение dispatchStatus в таблице registers_table
-                updateStatement.setString(1, (String) resultMap.get("registerType"));
-                updateStatement.setString(2, String.valueOf(resultMap.get("restIn")));
+                // Обновляем значение dispatchStatus в таблице по uid
+                updateStatement.setObject(1, UUID.fromString((String) resultMap.get("uid")));
                 updateStatement.executeUpdate();
+                // Удаляем, так как uid нам нужен только для изменения dispatchStatus
+                resultMap.remove("uid");
+
             }
 
         } catch (SQLException e) {

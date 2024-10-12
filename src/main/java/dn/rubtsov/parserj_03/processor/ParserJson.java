@@ -13,13 +13,13 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
 
-import static dn.rubtsov.parserj_03.processor.DBUtils.getAndUpdateFirstRecordWithDispatchStatus;
-
 @Component
 public class ParserJson {
     private final MappingConfiguration mappingConfiguration;
     @Autowired
     JsonProducer jsonProducer;
+    @Autowired
+    DBUtils dbUtils;
     @Autowired
     public ParserJson(MappingConfiguration mappingConfiguration) {
         this.mappingConfiguration = mappingConfiguration;
@@ -69,7 +69,7 @@ public class ParserJson {
 
         // Обработка для вставки в базу данных
         for (Map<String, Object> record : records) {
-            DBUtils.insertRecords(record, tableName);
+            dbUtils.insertRecords(record, tableName);
         }
     }
 
@@ -80,7 +80,7 @@ public class ParserJson {
     public void MessageDBToJson() {
         try {
             // Получаем требуемые данные из базы
-            Map<String,Object> messageDB = getAndUpdateFirstRecordWithDispatchStatus();
+            Map<String,Object> messageDB = dbUtils.getAndUpdateFirstRecordWithDispatchStatus();
             if (messageDB.isEmpty()) {
                 System.out.println("Нет данных для обработки.");
                 return;

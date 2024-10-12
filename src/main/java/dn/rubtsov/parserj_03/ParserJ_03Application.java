@@ -23,10 +23,12 @@ public class ParserJ_03Application implements CommandLineRunner {
     ParserJson parserJson;
     @Autowired
     JsonProducer jsonProducer;
+    @Autowired
+    DBUtils dbUtils;
 
     @PreDestroy
     public void destroy(){
-        DBUtils.dropTableIfExists("message_db");
+        dbUtils.dropTableIfExists("message_db");
 
     }
 
@@ -35,7 +37,7 @@ public class ParserJ_03Application implements CommandLineRunner {
     }
     @Override
     public void run(String... args) {
-        DBUtils.createTableIfNotExists("message_db");
+        dbUtils.createTableIfNotExists("message_db");
         try (InputStream inputStream = getClass().getResourceAsStream("/Test.json")) {
             String jsonContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             parserJson.processJson(jsonContent,"message_db");
