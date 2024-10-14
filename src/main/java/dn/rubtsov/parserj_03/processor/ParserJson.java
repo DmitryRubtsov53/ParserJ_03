@@ -4,16 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dn.rubtsov.parserj_03.config.MappingConfiguration;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.*;
 
 @Component
+@Slf4j
 public class ParserJson {
     private final MappingConfiguration mappingConfiguration;
     @Autowired
@@ -39,7 +43,7 @@ public class ParserJson {
 
         // Проверяем обязательные поля
         if ( productId == null) {
-            System.out.println("Пропускаем запись: обязательные поля не заполнены.");
+            log.warn("Пропускаем запись: обязательные поля не заполнены.");
             return; 
         }
 
@@ -57,7 +61,7 @@ public class ParserJson {
 
                 // Проверяем наличие обязательных полей перед добавлением записи
                 if (record.get("registerType") == null || record.get("restIn") == null) {
-                    System.out.println("Пропускаем запись: обязательные поля в registers не заполнены.");
+                    log.warn("Пропускаем запись: обязательные поля в registers не заполнены.");
                     continue; 
                 }
                 // Добавляем запись в список
@@ -82,7 +86,7 @@ public class ParserJson {
             // Получаем требуемые данные из базы
             Map<String,Object> messageDB = dbUtils.getAndUpdateFirstRecordWithDispatchStatus();
             if (messageDB.isEmpty()) {
-                System.out.println("Нет данных для обработки.");
+                log.info("Нет данных для обработки.");
                 return;
             }
 
@@ -90,28 +94,28 @@ public class ParserJson {
             ObjectMapper objectMapper = new ObjectMapper();
             File jsonFile = Paths.get("src", "main", "resources", "test2.json").toFile();
 
-            // Парсим JSON файл в объект JsonNode
+            // Преобразовываем JSON файл в объект JsonNode
             JsonNode jsonTemplate = null;
             try {
                 jsonTemplate = objectMapper.readTree(jsonFile);
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new FileNotFoundException("Файла шаблона Json по указанному пути нет");
             }
 
-            // Рекурсивно мапим объект messageDB на JSON-шаблон
+            // Рекурсивно мап пим объект messageDB на JSON-шаблон
             mapFieldsToJson(messageDB, jsonTemplate);
 
             // Преобразуем итоговый объект JsonNode обратно в строку
-            System.out.println(objectMapper.writeValueAsString(jsonTemplate));
-            jsonProducer.sendMessage(objectMapper.writeValueAsString(jsonTemplate));
+            String json = objectMapper.writeValueAsString(jsonTemplate);
+            System.out.println(json);
+            jsonProducer.sendMessage(json);
 
         } catch (IOException | IllegalAccessException e) {
-            System.err.println("Ошибка при обработке JSON или данных из базы.");
-            e.printStackTrace();
+            log.error("Ошибка при обработке JSON или данных из базы.",e);
         }
     }
 
-    // Метод для рекурсивного маппинга полей объекта на JSON
+    // Метод для рекурсивного маппинг полей объекта на JSON
     private static void mapFieldsToJson(Map<String, Object> messageDB, JsonNode jsonNode) throws IllegalAccessException {
         for (Map.Entry<String,Object> field : messageDB.entrySet()) {
             Object value = field.getValue();  
@@ -124,8 +128,6 @@ public class ParserJson {
 
     // Метод для замены значения в JSON с учетом массивов
     private static void replaceValueInJson(JsonNode jsonNode, String fieldName, Object value) {
-        // Приводим искомое имя поля к нижнему регистру
-        String fieldNameLower = fieldName.toLowerCase();
 
         if (jsonNode.isObject()) {
             // Проверяем наличие ключа без учета регистра

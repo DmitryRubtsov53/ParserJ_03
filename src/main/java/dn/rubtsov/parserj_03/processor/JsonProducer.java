@@ -1,6 +1,7 @@
 package dn.rubtsov.parserj_03.processor;
 
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.util.Properties;
 
 @Service
+@Slf4j
 public class JsonProducer {
     private final KafkaProducer<String, String> producer;
     private final String topic;
@@ -31,9 +33,9 @@ public class JsonProducer {
     public void sendMessage(String jsonMessage) {
         producer.send(new ProducerRecord<>(topic, jsonMessage), (metadata, exception) -> {
             if (exception != null) {
-                exception.printStackTrace();
+                log.error("Ошибка при отправке сообщения в тему {}: {}", topic, exception.getMessage(), exception);
             } else {
-                System.out.printf("Sent message to topic %s with offset %d%n", metadata.topic(), metadata.offset());
+                log.info("Сообщение отправлено в topic {} with offset {}", metadata.topic(), metadata.offset());
             }
         });
     }
