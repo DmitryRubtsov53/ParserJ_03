@@ -17,6 +17,10 @@
         </encoder>
     </appender>
 
+    <!-- Исключаем вывод логов настроек продюсера и потребителя -->
+    <logger name="org.apache.kafka.clients.producer.ProducerConfig" level="ERROR"/>
+    <logger name="org.apache.kafka.clients.consumer.ConsumerConfig" level="ERROR"/>
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>

@@ -1,16 +1,15 @@
 package dn.rubtsov.parserj_03.processor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
 @Service
+@Slf4j
 public class DBUtils {
-
-    private final String URL;
-    private final String USER;
-    private final String PASSWORD;
+    private final String URL, USER, PASSWORD;
 
     public DBUtils(@Value("${spring.datasource.url}") String URL,
                    @Value("${spring.datasource.username}")String USER,
@@ -38,7 +37,7 @@ public class DBUtils {
              Statement statement = connection.createStatement()) {
             statement.execute(createTableSQL);
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Ошибка при выполнении create-запроса: {}", e.getMessage(), e);
         }
     }
 
@@ -46,9 +45,9 @@ public class DBUtils {
      */
     public void insertRecords(Map<String, Object> data, String tableName) {
         if (data == null || data.isEmpty()) {
-            return;  // Нет данных для вставки
+            log.info("Нет данных для вставки");
+            return;
         }
-
         // Создаем динамический SQL-запрос для вставки данных
         String insertDataSQL = createInsertSQL(tableName, new ArrayList<>(data.keySet()));
         System.out.println(insertDataSQL);
@@ -81,7 +80,7 @@ public class DBUtils {
             preparedStatement.executeUpdate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Ошибка при выполнении insert-запроса: {}", e.getMessage(), e);
         }
     }
 
@@ -101,7 +100,7 @@ public class DBUtils {
              Statement statement = connection.createStatement()) {
             statement.execute(dropSQL);
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Ошибка при выполнении drop-запроса: {}", e.getMessage(), e);
         }
     }
 
@@ -113,7 +112,7 @@ public class DBUtils {
         String selectSQL = "SELECT uid, productid, messageid, accountingdate, registertype, restin FROM message_db WHERE dispatchStatus = 0 LIMIT 1";
         // SQL-запрос для обновления статуса записи в таблице
         String updateSQL = "UPDATE message_db SET dispatchStatus = 1 WHERE uid = ?";
-        // Карта для хранения значений
+        // Карта для хранения значений выборки
         Map<String, Object> resultMap = new LinkedHashMap<>();
 
         try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -121,25 +120,24 @@ public class DBUtils {
              PreparedStatement updateStatement = connection.prepareStatement(updateSQL);
              ResultSet resultSet = selectStatement.executeQuery()) {
 
-            // Выборка первой записи
+            // Заполняем карту полями из результата выборки
             if (resultSet.next()) {
-                // Заполняем карту полями из результата выборки
                 resultMap.put("uid", resultSet.getString("uid"));
                 resultMap.put("productid", resultSet.getString("productid"));
                 resultMap.put("messageid", resultSet.getString("messageid"));
                 resultMap.put("accountingdate", resultSet.getString("accountingdate"));
                 resultMap.put("registerType", resultSet.getString("registertype"));
                 resultMap.put("restIn", resultSet.getInt("restin"));
+
                 // Обновляем значение dispatchStatus в таблице по uid
                 updateStatement.setObject(1, UUID.fromString((String) resultMap.get("uid")));
                 updateStatement.executeUpdate();
                 // Удаляем, так как uid нам нужен только для изменения dispatchStatus
                 resultMap.remove("uid");
-
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            log.error("Ошибка при выполнении SQL-запроса: {}", e.getMessage(), e);
         }
 
         return resultMap;

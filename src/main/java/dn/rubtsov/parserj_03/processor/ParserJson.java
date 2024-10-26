@@ -1,5 +1,6 @@
 package dn.rubtsov.parserj_03.processor;
 
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,70 +11,38 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.*;
 
 @Component
 @Slf4j
 public class ParserJson {
-    private final MappingConfiguration mappingConfiguration;
+
+    private final JsonProducer jsonProducer;
+    private final DBUtils dbService;
+    private final ParsingService parsingService;
     @Autowired
-    JsonProducer jsonProducer;
-    @Autowired
-    DBUtils dbUtils;
-    @Autowired
-    public ParserJson(MappingConfiguration mappingConfiguration) {
-        this.mappingConfiguration = mappingConfiguration;
+    public ParserJson(JsonProducer jsonProducer, DBUtils dbService,
+                      ParsingService parsingService) {
+        this.jsonProducer = jsonProducer;
+        this.dbService = dbService;
+        this.parsingService = parsingService;
     }
 
     public void processJson(String json, String tableName) throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode rootNode = objectMapper.readTree(json);
+        // Список для хранения всех записей
+        List<Map<String, Object>> records = new ArrayList<>(parsingService.parsingJsonToRecordForDB(json));
 
-        // Используем список для хранения всех записей
-        List<Map<String, Object>> records = new ArrayList<>();
+        // Для отладки
+        System.out.println("Список всех записей для внесения в БД: \n" + records);
 
-        // Получаем одиночные поля
-        String accountingDate = rootNode.at(mappingConfiguration.getFieldMappings().get("accountingDate")).asText(null);
-        String messageId = rootNode.at(mappingConfiguration.getFieldMappings().get("messageId")).asText(null);
-        String productId = rootNode.at(mappingConfiguration.getFieldMappings().get("productId")).asText(null);
+        // Проверка обязательных полей и удаление не валидных записей из списка
+        records = parsingService.deletingRecordsWithInvalidRequiredFields(records);
 
-        // Проверяем обязательные поля
-        if ( productId == null) {
-            log.warn("Пропускаем запись: обязательные поля не заполнены.");
-            return; 
-        }
-
-        // Обрабатываем массив registers
-        JsonNode registersNode = rootNode.at(mappingConfiguration.getFieldMappings().get("registers"));
-        if (registersNode.isArray()) {
-            for (JsonNode register : registersNode) {
-                // Создаем запись для каждого элемента массива
-                Map<String, Object> record = new LinkedHashMap<>();
-                record.put("productId", productId);
-                record.put("messageId", messageId);
-                record.put("accountingDate", accountingDate);
-                record.put("registerType", register.at(mappingConfiguration.getFieldMappings().get("registerType")).asText(null));
-                record.put("restIn", register.at(mappingConfiguration.getFieldMappings().get("restIn")).asText(null));
-
-                // Проверяем наличие обязательных полей перед добавлением записи
-                if (record.get("registerType") == null || record.get("restIn") == null) {
-                    log.warn("Пропускаем запись: обязательные поля в registers не заполнены.");
-                    continue; 
-                }
-                // Добавляем запись в список
-                records.add(record);
-            }
-        }
-        // Выводим список записей
-        System.out.println(records);
-
-        // Обработка для вставки в базу данных
-        for (Map<String, Object> record : records) {
-            dbUtils.insertRecords(record, tableName);
+        // Обработка для вставки в БД
+        for (Map<String, Object> rec : records) {
+            System.out.println("record для вставки: " + rec);
+            dbService.insertRecords(rec, tableName);
         }
     }
 
@@ -84,30 +53,21 @@ public class ParserJson {
     public void MessageDBToJson() {
         try {
             // Получаем требуемые данные из базы
-            Map<String,Object> messageDB = dbUtils.getAndUpdateFirstRecordWithDispatchStatus();
+            Map<String,Object> messageDB = dbService.getAndUpdateFirstRecordWithDispatchStatus();
             if (messageDB.isEmpty()) {
                 log.info("Нет данных для обработки.");
                 return;
             }
-
             // Читаем шаблон JSON из файла
-            ObjectMapper objectMapper = new ObjectMapper();
-            File jsonFile = Paths.get("src", "main", "resources", "test2.json").toFile();
-
-            // Преобразовываем JSON файл в объект JsonNode
-            JsonNode jsonTemplate = null;
-            try {
-                jsonTemplate = objectMapper.readTree(jsonFile);
-            } catch (IOException e) {
-                throw new FileNotFoundException("Файла шаблона Json по указанному пути нет");
-            }
+            JsonNode jsonTemplate = parsingService.readTempleFromFile();
 
             // Рекурсивно мап пим объект messageDB на JSON-шаблон
             mapFieldsToJson(messageDB, jsonTemplate);
 
             // Преобразуем итоговый объект JsonNode обратно в строку
-            String json = objectMapper.writeValueAsString(jsonTemplate);
-            System.out.println(json);
+            String json = new ObjectMapper().writeValueAsString(jsonTemplate);
+
+            log.info("Сообщение: {}", json);
             jsonProducer.sendMessage(json);
 
         } catch (IOException | IllegalAccessException e) {
@@ -118,7 +78,7 @@ public class ParserJson {
     // Метод для рекурсивного маппинг полей объекта на JSON
     private static void mapFieldsToJson(Map<String, Object> messageDB, JsonNode jsonNode) throws IllegalAccessException {
         for (Map.Entry<String,Object> field : messageDB.entrySet()) {
-            Object value = field.getValue();  
+            Object value = field.getValue();
 
             if (value != null) {
                 replaceValueInJson(jsonNode, field.getKey(), value);
@@ -136,7 +96,7 @@ public class ParserJson {
                 if (key.equalsIgnoreCase(fieldName)) {
                     // Заменяем значение, если ключ найден
                     ((ObjectNode) jsonNode).put(fieldName, value.toString());
-                    return; 
+                    return;
                 }
             }
         }
@@ -155,5 +115,4 @@ public class ParserJson {
             }
         }
     }
-
 }
